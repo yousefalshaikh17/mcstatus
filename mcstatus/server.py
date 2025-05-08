@@ -59,8 +59,21 @@ class JavaServer(MCServer):
 
     DEFAULT_PORT = 25565
 
+    def __init__(self, host: str, port: int | None = None, timeout: float = 3, query_port: int | None = None):
+        """
+        :param host: The host/ip of the minecraft server.
+        :param port: The port that the server is on.
+        :param timeout: The timeout in seconds before failing to connect.
+        :param query_port: The port to use for query calls.
+        """
+        super().__init__(host=host, port=port, timeout=timeout)
+
+        if query_port is None:
+            query_port = self.address.port
+        self.query_port = query_port
+
     @classmethod
-    def lookup(cls, address: str, timeout: float = 3) -> Self:
+    def lookup(cls, address: str, timeout: float = 3, query_port=None) -> Self:
         """Mimics minecraft's server address field.
 
         With Java servers, on top of just parsing the address, we also check the
@@ -70,9 +83,10 @@ class JavaServer(MCServer):
 
         :param address: The address of the Minecraft server, like ``example.com:25565``.
         :param timeout: The timeout in seconds before failing to connect.
+        :param query_port: The port to use for query calls.
         """
         addr = minecraft_srv_address_lookup(address, default_port=cls.DEFAULT_PORT, lifetime=timeout)
-        return cls(addr.host, addr.port, timeout=timeout)
+        return cls(addr.host, addr.port, timeout=timeout, query_port=query_port)
 
     @classmethod
     async def async_lookup(cls, address: str, timeout: float = 3) -> Self:
@@ -157,7 +171,7 @@ class JavaServer(MCServer):
         :return: Query information in a :class:`~mcstatus.querier.QueryResponse` instance.
         """
         ip = str(self.address.resolve_ip())
-        return self._retry_query(Address(ip, self.address.port), tries=tries)
+        return self._retry_query(Address(ip, self.query_port), tries=tries)
 
     @retry(tries=3)
     def _retry_query(self, addr: Address, **_kwargs) -> QueryResponse:
@@ -173,7 +187,7 @@ class JavaServer(MCServer):
         :return: Query information in a :class:`~mcstatus.querier.QueryResponse` instance.
         """
         ip = str(await self.address.async_resolve_ip())
-        return await self._retry_async_query(Address(ip, self.address.port), tries=tries)
+        return await self._retry_async_query(Address(ip, self.query_port), tries=tries)
 
     @retry(tries=3)
     async def _retry_async_query(self, address: Address, **_kwargs) -> QueryResponse:
